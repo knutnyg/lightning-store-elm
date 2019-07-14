@@ -1,39 +1,49 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, div, h1, h2, img, p, text)
+import Html exposing (Html, div, h2, p, text)
 import Http
-import Json.Decode exposing (Decoder, field, string, int, map)
-import Html.Attributes exposing (src)
+import Json.Decode exposing (Decoder, field, int, map)
 
 
 ---- MODEL ----
+
+
 type alias Model =
-    {
-        nodeInfo: Maybe NodeInfo
+    { nodeInfo : Maybe NodeInfo
+    , flags : Flags
     }
+
 
 type alias NodeInfo =
-    {
-        blockHeight: Int
+    { blockHeight : Int
     }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( { nodeInfo = Nothing }, getInfo )
+type alias Flags =
+    { backendApiUrl : String }
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flag =
+    ( { nodeInfo = Nothing, flags = flag }, getInfo flag.backendApiUrl )
+
+
 
 ---- UPDATE ----
+
+
 type Msg
     = GotInfo (Result Http.Error NodeInfo)
 
-getInfo : Cmd Msg
-getInfo =
+
+getInfo : String -> Cmd Msg
+getInfo baseUrl =
     Http.get
-    {
-        url = "http://localhost:8080/status",
-        expect = Http.expectJson GotInfo getInfoDecoder
-    }
+        { url = baseUrl ++ "/status"
+        , expect = Http.expectJson GotInfo getInfoDecoder
+        }
+
 
 getInfoDecoder : Decoder NodeInfo
 getInfoDecoder =
@@ -46,36 +56,47 @@ update msg model =
     case msg of
         GotInfo result ->
             case result of
-                Ok ni -> ({ nodeInfo = Just ni}, Cmd.none)
-                Err _ -> (model, Cmd.none)
+                Ok ni ->
+                    ( { model | nodeInfo = Just ni }, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+
 
 ---- VIEW ----
 
 
 view : Model -> Html Msg
 view model =
-    div [] [
-        nodeInfoView(model.nodeInfo)
+    div []
+        [ nodeInfoView (model.nodeInfo)
         ]
+
 
 nodeInfoView : Maybe NodeInfo -> Html Msg
 nodeInfoView nodeInfo =
     case nodeInfo of
         Just ns ->
-           (div []
-            [ h2 [] [ text "nodeinfo" ]
-            , p [] [ text ("BlockHeight: " ++ String.fromInt ns.blockHeight) ]
-            ])
-        Nothing -> div [] []
+            (div []
+                [ h2 [] [ text "nodeinfo" ]
+                , p [] [ text ("BlockHeight: " ++ String.fromInt ns.blockHeight) ]
+                ]
+            )
+
+        Nothing ->
+            div [] []
+
+
 
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.element
         { view = view
-        , init = \_ -> init
+        , init = init
         , update = update
         , subscriptions = always Sub.none
         }
