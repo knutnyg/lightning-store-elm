@@ -1,9 +1,9 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, div, h2, p, text)
+import Html exposing (Html, div, h2, li, p, text, ul)
 import Http
-import Json.Decode exposing (Decoder, field, int, map)
+import Json.Decode exposing (Decoder, field, int, list, map, map2, map3, string)
 
 
 ---- MODEL ----
@@ -17,6 +17,8 @@ type alias Model =
 
 type alias NodeInfo =
     { blockHeight : Int
+    , alias: String
+    , uri: List String
     }
 
 
@@ -47,8 +49,10 @@ getInfo baseUrl =
 
 getInfoDecoder : Decoder NodeInfo
 getInfoDecoder =
-    map NodeInfo
+    map3 NodeInfo
         (field "block_height" int)
+        (field "alias" string)
+        (field "uris" (list string))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -79,13 +83,15 @@ nodeInfoView nodeInfo =
     case nodeInfo of
         Just ns ->
             (div []
-                [ h2 [] [ text "nodeinfo" ]
+                [ h2 [] [ text ("Connect to my node: " ++ ns.alias) ]
                 , p [] [ text ("BlockHeight: " ++ String.fromInt ns.blockHeight) ]
+                , ul []
+                    (List.map (\uri -> li [] [ text ("URI: " ++ uri)]) ns.uri)
                 ]
             )
 
         Nothing ->
-            div [] []
+            text "waiting for data"
 
 
 
