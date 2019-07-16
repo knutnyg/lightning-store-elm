@@ -18,7 +18,7 @@ type alias Model =
 type alias NodeInfo =
     { blockHeight : Int
     , alias: String
-    , uri: List String
+    , uri: String
     }
 
 
@@ -42,7 +42,7 @@ type Msg
 getInfo : String -> Cmd Msg
 getInfo baseUrl =
     Http.get
-        { url = baseUrl ++ "/status"
+        { url = baseUrl ++ "/nodeInfo"
         , expect = Http.expectJson GotInfo getInfoDecoder
         }
 
@@ -50,9 +50,9 @@ getInfo baseUrl =
 getInfoDecoder : Decoder NodeInfo
 getInfoDecoder =
     map3 NodeInfo
-        (field "block_height" int)
+        (field "blockHeight" int)
         (field "alias" string)
-        (field "uris" (list string))
+        (field "uri"  string)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -85,8 +85,7 @@ nodeInfoView nodeInfo =
             (div []
                 [ h2 [] [ text ("Connect to my node: " ++ ns.alias) ]
                 , p [] [ text ("BlockHeight: " ++ String.fromInt ns.blockHeight) ]
-                , ul []
-                    (List.map (\uri -> li [] [ text ("URI: " ++ uri)]) ns.uri)
+                , p [] [ text ("URI: " ++ ns.uri)]
                 ]
             )
 
