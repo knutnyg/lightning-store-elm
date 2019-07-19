@@ -18,7 +18,6 @@ import Utility exposing (textHtml)
 
 type alias Model =
     { loginStatus : LoginState
-    , key : Maybe String
     , formKey : String
     , nodeInfo : Maybe NodeInfo
     , flags : Flags
@@ -66,7 +65,6 @@ init : Flags -> ( Model, Cmd Msg )
 init flag =
     ( { loginStatus = Anonymous
       , formKey = ""
-      , key = Nothing
       , nodeInfo = Nothing
       , flags = flag
       , invoice = Nothing
@@ -256,7 +254,7 @@ update msg model =
                                 AnonymousTemp ->
                                     Anonymous
                     in
-                    ( { model | loginStatus = status, key = val.key }, Cmd.none )
+                    ( { model | loginStatus = status }, Cmd.none )
 
                 Err err ->
                     ( model, Cmd.none )
