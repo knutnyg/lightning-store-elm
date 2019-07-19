@@ -241,7 +241,7 @@ update msg model =
         GotCheckLogin result ->
             case result of
                 Ok val ->
-                    ( { model | loginStatus = val.status }, Cmd.none )
+                    ( { model | loginStatus = val.status, key = val.key }, Cmd.none )
 
                 Err err ->
                     let
