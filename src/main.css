@@ -44,7 +44,7 @@ ul {
   display: grid;
   padding-inline-start: 10px;
   padding-inline-end: 10px;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   list-style-type: none;
 }
 
