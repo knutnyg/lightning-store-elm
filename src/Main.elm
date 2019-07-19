@@ -244,10 +244,6 @@ update msg model =
                     ( { model | loginStatus = val.status, key = val.key }, Cmd.none )
 
                 Err err ->
-                    let
-                        error =
-                            Debug.log "GotCheckLogin error=" err
-                    in
                     ( model, Cmd.none )
 
         DoLogin ->
