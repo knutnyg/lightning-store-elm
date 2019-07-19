@@ -36,6 +36,7 @@ type LoginState
 
 type alias CheckLoginResult =
     { status : LoginState
+    , key : Maybe String
     }
 
 
@@ -164,6 +165,7 @@ checkLoginResultDecoder : Decoder CheckLoginResult
 checkLoginResultDecoder =
     Decode.map2 CheckLoginResult
         (field "status" loginStateDecoder)
+        (Decode.maybe (field "key" string))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
