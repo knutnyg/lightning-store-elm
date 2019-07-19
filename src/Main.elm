@@ -7,6 +7,7 @@ import Html.Attributes as Attributes exposing (action, class, href, id, src, typ
 import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode as Decode exposing (Decoder, field, string)
+import Json.Encode as Encode
 import QRCode
 import Utility exposing (textHtml)
 
@@ -84,10 +85,29 @@ type Msg
     | GetInvoice
     | CheckLogin
     | SetFormKey String
-    | DoLogin String
+    | DoLogin
     | GotCheckLogin (Result Http.Error CheckLoginResult)
     | GotInvoice (Result Http.Error Invoice)
     | GotArticles (Result Http.Error (List Article))
+
+
+newLoginCheckPost : String -> Encode.Value
+newLoginCheckPost key =
+    Encode.object
+        [ ( "key", Encode.string key ) ]
+
+
+checkLoginKey : String -> String -> Cmd Msg
+checkLoginKey baseUrl key =
+    Http.riskyRequest
+        { method = "POST"
+        , headers = []
+        , body = Http.jsonBody (newLoginCheckPost key)
+        , url = baseUrl ++ "/login"
+        , expect = Http.expectJson GotCheckLogin checkLoginResultDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
 
 
 checkLogin : String -> Cmd Msg
@@ -230,8 +250,8 @@ update msg model =
                     in
                     ( model, Cmd.none )
 
-        DoLogin _ ->
-            ( model, Cmd.none )
+        DoLogin ->
+            ( model, checkLoginKey model.flags.backendApiUrl model.formKey )
 
 
 
@@ -278,7 +298,7 @@ loginView model =
                 div []
                     [ section [] [ text "Enter key: " ]
                     , section []
-                        [ form [ onSubmit (DoLogin "") ]
+                        [ form [ onSubmit DoLogin ]
                             [ input
                                 [ Attributes.style "width" "100%"
                                 , Attributes.placeholder "Enter private key to restore session"
@@ -286,7 +306,7 @@ loginView model =
                                 , onInput SetFormKey
                                 ]
                                 []
-                            , button [] [ text "Login" ]
+                            , button [ onSubmit DoLogin ] [ text "Login" ]
                             ]
                         ]
                     ]
