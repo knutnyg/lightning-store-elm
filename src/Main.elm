@@ -34,12 +34,12 @@ type alias Invoice =
 
 
 type LoginState
-    = LoggedIn
+    = LoggedIn String
     | Anonymous
 
 
 type alias CheckLoginResult =
-    { status : LoginState
+    { status : LoginStateTemp
     , key : Maybe String
     }
 
@@ -181,17 +181,22 @@ getInfoDecoder =
         (field "uri" string)
 
 
-loginStateDecoder : Decoder LoginState
+type LoginStateTemp
+    = LoggedInTemp
+    | AnonymousTemp
+
+
+loginStateDecoder : Decoder LoginStateTemp
 loginStateDecoder =
     Decode.string
         |> Decode.andThen
             (\str ->
                 case str of
                     "LOGGED_IN" ->
-                        Decode.succeed LoggedIn
+                        Decode.succeed LoggedInTemp
 
                     _ ->
-                        Decode.succeed Anonymous
+                        Decode.succeed AnonymousTemp
             )
 
 
@@ -241,7 +246,17 @@ update msg model =
         GotCheckLogin result ->
             case result of
                 Ok val ->
-                    ( { model | loginStatus = val.status, key = val.key }, Cmd.none )
+                    let
+                        status =
+                            case val.status of
+                                LoggedInTemp ->
+                                    Maybe.map (\key -> LoggedIn key) val.key
+                                        |> Maybe.withDefault Anonymous
+
+                                AnonymousTemp ->
+                                    Anonymous
+                    in
+                    ( { model | loginStatus = status, key = val.key }, Cmd.none )
 
                 Err err ->
                     ( model, Cmd.none )
@@ -283,21 +298,17 @@ loginView : Model -> Html Msg
 loginView model =
     section []
         [ case model.loginStatus of
-            LoggedIn ->
-                let
-                    key =
-                        Maybe.withDefault "Missing!" model.key
-                in
+            LoggedIn key ->
                 div [] [ text key ]
 
             Anonymous ->
                 div []
-                    [ section [] [ text "Enter key: " ]
+                    [ section [] [ text "Enter your key to restore the session: " ]
                     , section []
                         [ form [ onSubmit DoLogin ]
                             [ input
                                 [ Attributes.style "width" "100%"
-                                , Attributes.placeholder "Enter private key to restore session"
+                                , Attributes.placeholder ""
                                 , type_ "text"
                                 , onInput SetFormKey
                                 ]
