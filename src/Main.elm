@@ -1,11 +1,13 @@
 module Main exposing (Flags, Invoice, Model, Msg(..), NodeInfo, getInfo, getInfoDecoder, init, main, nodeInfoView, update, view)
 
+import Base64
 import Browser
-import Html exposing (Html, a, article, button, div, h1, h2, header, input, li, nav, p, section, span, text, ul)
-import Html.Attributes exposing (class, href, id, type_)
+import Html exposing (Html, a, article, button, div, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
+import Html.Attributes exposing (class, href, id, src, type_)
 import Http
-import Json.Decode exposing (Decoder, field, int, list, map, map2, map3, string)
+import Json.Decode exposing (Decoder, field, int, list, map, map2, map3, map5, maybe, nullable, string)
 import QRCode
+import Utility exposing (textHtml)
 
 
 
@@ -16,6 +18,7 @@ type alias Model =
     { nodeInfo : Maybe NodeInfo
     , flags : Flags
     , invoice : Maybe Invoice
+    , articleTeasers : List Article
     }
 
 
@@ -32,13 +35,20 @@ type alias NodeInfo =
     }
 
 
+type alias Article =
+    { uuid : String
+    , title : String
+    , teaser : String
+    }
+
+
 type alias Flags =
     { backendApiUrl : String }
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flag =
-    ( { nodeInfo = Nothing, flags = flag, invoice = Nothing }, getInfo flag.backendApiUrl )
+    ( { nodeInfo = Nothing, flags = flag, invoice = Nothing, articleTeasers = [] }, Cmd.batch [ getInfo flag.backendApiUrl, getArticles flag.backendApiUrl ] )
 
 
 
@@ -49,6 +59,7 @@ type Msg
     = GotInfo (Result Http.Error NodeInfo)
     | GetInvoice
     | GotInvoice (Result Http.Error Invoice)
+    | GotArticles (Result Http.Error (List Article))
 
 
 getInfo : String -> Cmd Msg
@@ -66,6 +77,24 @@ getInvoice baseUrl =
         , body = Http.emptyBody
         , expect = Http.expectJson GotInvoice invoiceDecoder
         }
+
+
+getArticles : String -> Cmd Msg
+getArticles baseUrl =
+    Http.get
+        { url = baseUrl ++ "/articles"
+        , expect = Http.expectJson GotArticles articleDecoder
+        }
+
+
+articleDecoder : Decoder (List Article)
+articleDecoder =
+    list
+        (map3 Article
+            (field "uuid" string)
+            (field "title" string)
+            (field "teaser" string)
+        )
 
 
 invoiceDecoder : Decoder Invoice
@@ -105,6 +134,14 @@ update msg model =
                 Err _ ->
                     ( model, Cmd.none )
 
+        GotArticles result ->
+            case result of
+                Ok i ->
+                    ( { model | articleTeasers = i }, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
 
 
 ---- VIEW ----
@@ -129,29 +166,29 @@ view model =
                 ]
             , h1 [] [ text "Concept Lightning Store" ]
             ]
-        , section []
-            [ article []
-                [ header [] [ text "title" ]
-                , p [] [ text "lorem ipsum" ]
-                ]
-            , nodeInfoView model.nodeInfo
-            ]
+        , articleTeaserViews model.articleTeasers
+        , section [] [ nodeInfoView model.nodeInfo ]
         ]
 
 
+articleTeaserViews : List Article -> Html Msg
+articleTeaserViews lst =
+    div []
+        (List.map
+            (\l ->
+                article []
+                    (textHtml
+                        (case Base64.decode l.teaser of
+                            Ok res ->
+                                res
 
---	<article>
---			<header>
---				<h2>Article title</h2>
---				<p>Posted on <time datetime="2009-09-04T16:31:24+02:00">September 4th 2009</time> by <a href="#">Writer</a> - <a href="#comments">6 comments</a></p>
---			</header>
---			<p>Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.</p>
---		</article>
---    div []
---        [ nodeInfoView model.nodeInfo
---        , button [ onClick GetInvoice ] [ text "Pay me all your money" ]
---        , invoiceView model.invoice
---        ]
+                            Err _ ->
+                                "<p>Failed to decode article</p>"
+                        )
+                    )
+            )
+            lst
+        )
 
 
 invoiceView : Maybe Invoice -> Html Msg
