@@ -152,7 +152,7 @@ loginStateDecoder =
         |> Json.Decode.andThen
             (\str ->
                 case str of
-                    "LoggedIn" ->
+                    "LOGGED_IN" ->
                         Json.Decode.succeed LoggedIn
 
                     _ ->
