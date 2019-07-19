@@ -2,8 +2,9 @@ module Main exposing (Flags, Invoice, Model, Msg(..), NodeInfo, getInfo, getInfo
 
 import Base64
 import Browser
-import Html exposing (Html, a, article, button, div, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
-import Html.Attributes exposing (class, href, id, src, type_)
+import Html exposing (Html, a, article, button, div, form, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
+import Html.Attributes as Attributes exposing (action, class, href, id, src, type_)
+import Html.Events exposing (onInput, onSubmit)
 import Http
 import Json.Decode as Decode exposing (Decoder, field, string)
 import QRCode
@@ -16,6 +17,8 @@ import Utility exposing (textHtml)
 
 type alias Model =
     { loginStatus : LoginState
+    , key : Maybe String
+    , formKey : String
     , nodeInfo : Maybe NodeInfo
     , flags : Flags
     , invoice : Maybe Invoice
@@ -60,7 +63,16 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init flag =
-    ( { loginStatus = Anonymous, nodeInfo = Nothing, flags = flag, invoice = Nothing, articleTeasers = [] }, Cmd.batch [ checkLogin flag.backendApiUrl, getInfo flag.backendApiUrl, getArticles flag.backendApiUrl ] )
+    ( { loginStatus = Anonymous
+      , formKey = ""
+      , key = Nothing
+      , nodeInfo = Nothing
+      , flags = flag
+      , invoice = Nothing
+      , articleTeasers = []
+      }
+    , Cmd.batch [ checkLogin flag.backendApiUrl, getInfo flag.backendApiUrl, getArticles flag.backendApiUrl ]
+    )
 
 
 
@@ -71,6 +83,8 @@ type Msg
     = GotInfo (Result Http.Error NodeInfo)
     | GetInvoice
     | CheckLogin
+    | SetFormKey String
+    | DoLogin String
     | GotCheckLogin (Result Http.Error CheckLoginResult)
     | GotInvoice (Result Http.Error Invoice)
     | GotArticles (Result Http.Error (List Article))
@@ -171,6 +185,9 @@ checkLoginResultDecoder =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        SetFormKey val ->
+            ( { model | formKey = val }, Cmd.none )
+
         GotInfo result ->
             case result of
                 Ok ni ->
@@ -213,6 +230,9 @@ update msg model =
                     in
                     ( model, Cmd.none )
 
+        DoLogin _ ->
+            ( model, Cmd.none )
+
 
 
 ---- VIEW ----
@@ -237,8 +257,39 @@ view model =
                 ]
             , h1 [] [ text "Concept Lightning Store" ]
             ]
+        , loginView model
         , articleTeaserViews model.articleTeasers
         , section [] [ nodeInfoView model.nodeInfo ]
+        ]
+
+
+loginView : Model -> Html Msg
+loginView model =
+    section []
+        [ case model.loginStatus of
+            LoggedIn ->
+                let
+                    key =
+                        Maybe.withDefault "Missing!" model.key
+                in
+                div [] [ text key ]
+
+            Anonymous ->
+                div []
+                    [ section [] [ text "Enter key: " ]
+                    , section []
+                        [ form [ onSubmit (DoLogin "") ]
+                            [ input
+                                [ Attributes.style "width" "100%"
+                                , Attributes.placeholder "Enter private key to restore session"
+                                , type_ "text"
+                                , onInput SetFormKey
+                                ]
+                                []
+                            , button [] [ text "Login" ]
+                            ]
+                        ]
+                    ]
         ]
 
 
