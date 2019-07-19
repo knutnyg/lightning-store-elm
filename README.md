@@ -7,5 +7,14 @@ It relies on a backend: https://github.com/knutnyg/lightning-store
 To run locally:
 `elm-app start`
 
+Or:
+
+```bash
+export ELM_APP_API_URL='https://lightning-store.herokuapp.com'
+
+npm run start
+
+```
+
 ## Deploy
 Push to master 
