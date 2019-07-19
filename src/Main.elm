@@ -351,7 +351,8 @@ nodeInfoView nodeInfo =
     case nodeInfo of
         Just ns ->
             div []
-                [ h2 [] [ text ("Connect to my node: " ++ ns.alias) ]
+                [ h2 [] [ text "Connect to my node: " ]
+                , p [] [ text ("Name: " ++ ns.alias) ]
                 , p [] [ text ("BlockHeight: " ++ String.fromInt ns.blockHeight) ]
                 , p [] [ text ("URI: " ++ ns.uri) ]
                 ]
