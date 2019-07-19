@@ -5,7 +5,7 @@ import Browser
 import Html exposing (Html, a, article, button, div, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
 import Html.Attributes exposing (class, href, id, src, type_)
 import Http
-import Json.Decode exposing (Decoder, field, int, list, map, map2, map3, map5, maybe, nullable, string)
+import Json.Decode exposing (Decoder, field, int, list, map2, map3, map5, maybe, nullable, string)
 import QRCode
 import Utility exposing (textHtml)
 
@@ -15,7 +15,8 @@ import Utility exposing (textHtml)
 
 
 type alias Model =
-    { nodeInfo : Maybe NodeInfo
+    { loginStatus : LoginState
+    , nodeInfo : Maybe NodeInfo
     , flags : Flags
     , invoice : Maybe Invoice
     , articleTeasers : List Article
@@ -25,6 +26,16 @@ type alias Model =
 type alias Invoice =
     { rhash : String
     , paymentRequest : String
+    }
+
+
+type LoginState
+    = LoggedIn
+    | Anonymous
+
+
+type alias CheckLoginResult =
+    { status : LoginState
     }
 
 
@@ -48,7 +59,7 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init flag =
-    ( { nodeInfo = Nothing, flags = flag, invoice = Nothing, articleTeasers = [] }, Cmd.batch [ getInfo flag.backendApiUrl, getArticles flag.backendApiUrl ] )
+    ( { loginStatus = Anonymous, nodeInfo = Nothing, flags = flag, invoice = Nothing, articleTeasers = [] }, Cmd.batch [ checkLogin flag.backendApiUrl, getInfo flag.backendApiUrl, getArticles flag.backendApiUrl ] )
 
 
 
@@ -58,8 +69,31 @@ init flag =
 type Msg
     = GotInfo (Result Http.Error NodeInfo)
     | GetInvoice
+    | CheckLogin
+    | GotCheckLogin (Result Http.Error CheckLoginResult)
     | GotInvoice (Result Http.Error Invoice)
     | GotArticles (Result Http.Error (List Article))
+
+
+checkLogin : String -> Cmd Msg
+checkLogin baseUrl =
+    Http.riskyRequest
+        { method = "GET"
+        , headers = []
+        , body = Http.emptyBody
+        , url = baseUrl ++ "/login"
+        , expect = Http.expectJson GotCheckLogin checkLoginResultDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+
+--checkLogin baseUrl =
+--    Http.get
+--        { url = baseUrl ++ "/login"
+--        , expect = Http.expectJson GotCheckLogin checkLoginResultDecoder
+--        }
 
 
 getInfo : String -> Cmd Msg
@@ -112,6 +146,26 @@ getInfoDecoder =
         (field "uri" string)
 
 
+loginStateDecoder : Decoder LoginState
+loginStateDecoder =
+    Json.Decode.string
+        |> Json.Decode.andThen
+            (\str ->
+                case str of
+                    "LoggedIn" ->
+                        Json.Decode.succeed LoggedIn
+
+                    _ ->
+                        Json.Decode.succeed Anonymous
+            )
+
+
+checkLoginResultDecoder : Decoder CheckLoginResult
+checkLoginResultDecoder =
+    Json.Decode.map CheckLoginResult
+        (field "status" loginStateDecoder)
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -140,6 +194,21 @@ update msg model =
                     ( { model | articleTeasers = i }, Cmd.none )
 
                 Err _ ->
+                    ( model, Cmd.none )
+
+        CheckLogin ->
+            ( model, checkLogin model.flags.backendApiUrl )
+
+        GotCheckLogin result ->
+            case result of
+                Ok val ->
+                    ( { model | loginStatus = val.status }, Cmd.none )
+
+                Err err ->
+                    let
+                        error =
+                            Debug.log "GotCheckLogin error=" err
+                    in
                     ( model, Cmd.none )
 
 
