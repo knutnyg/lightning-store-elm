@@ -16,5 +16,8 @@
     "license": "ISC",
     "dependencies": {
         "create-elm-app": "^2.2.3"
+    },
+    "devDependencies": {
+        "elm-format": "^0.8.1"
     }
 }
