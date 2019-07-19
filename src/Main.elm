@@ -5,7 +5,7 @@ import Browser
 import Html exposing (Html, a, article, button, div, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
 import Html.Attributes exposing (class, href, id, src, type_)
 import Http
-import Json.Decode exposing (Decoder, field, int, list, map2, map3, map5, maybe, nullable, string)
+import Json.Decode as Decode exposing (Decoder, field, string)
 import QRCode
 import Utility exposing (textHtml)
 
@@ -123,8 +123,8 @@ getArticles baseUrl =
 
 articleDecoder : Decoder (List Article)
 articleDecoder =
-    list
-        (map3 Article
+    Decode.list
+        (Decode.map3 Article
             (field "uuid" string)
             (field "title" string)
             (field "teaser" string)
@@ -133,36 +133,36 @@ articleDecoder =
 
 invoiceDecoder : Decoder Invoice
 invoiceDecoder =
-    map2 Invoice
+    Decode.map2 Invoice
         (field "rhash" string)
         (field "paymentRequest" string)
 
 
 getInfoDecoder : Decoder NodeInfo
 getInfoDecoder =
-    map3 NodeInfo
-        (field "blockHeight" int)
+    Decode.map3 NodeInfo
+        (field "blockHeight" Decode.int)
         (field "alias" string)
         (field "uri" string)
 
 
 loginStateDecoder : Decoder LoginState
 loginStateDecoder =
-    Json.Decode.string
-        |> Json.Decode.andThen
+    Decode.string
+        |> Decode.andThen
             (\str ->
                 case str of
                     "LOGGED_IN" ->
-                        Json.Decode.succeed LoggedIn
+                        Decode.succeed LoggedIn
 
                     _ ->
-                        Json.Decode.succeed Anonymous
+                        Decode.succeed Anonymous
             )
 
 
 checkLoginResultDecoder : Decoder CheckLoginResult
 checkLoginResultDecoder =
-    Json.Decode.map CheckLoginResult
+    Decode.map2 CheckLoginResult
         (field "status" loginStateDecoder)
 
 
