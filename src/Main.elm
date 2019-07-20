@@ -310,12 +310,11 @@ view model =
                 ]
             , case model.url.path of
                 "/articles" ->
-                    p [] [ text "articles" ]
+                    articleTeaserViews model.articleTeasers
 
                 _ ->
                     div []
                         [ loginView model
-                        , articleTeaserViews model.articleTeasers
                         , section [] [ nodeInfoView model.nodeInfo ]
                         ]
             ]
