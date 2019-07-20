@@ -300,7 +300,7 @@ view model =
                         , span [] [ text "" ]
                         , span [] [ text "" ]
                         , ul [ id "menu" ]
-                            [ li [] [ a [ href "#" ] [ text "Home" ] ]
+                            [ li [] [ a [ href "/" ] [ text "Home" ] ]
                             , li [] [ a [ href "articles" ] [ text "Articles" ] ]
                             , li [] [ a [ href "#" ] [ text "Contact" ] ]
                             ]
