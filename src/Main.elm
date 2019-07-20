@@ -1,7 +1,8 @@
-module Main exposing (Flags, Invoice, Model, Msg(..), NodeInfo, getInfo, getInfoDecoder, init, main, nodeInfoView, update, view)
+module Main exposing (Article, Flags, Invoice, Model, Msg(..), NodeInfo, getInfo, getInfoDecoder, init, main, nodeInfoView, update, view)
 
 import Base64
 import Browser
+import Browser.Navigation exposing (Key, load, pushUrl)
 import Html exposing (Html, a, article, button, div, form, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
 import Html.Attributes as Attributes exposing (action, class, href, id, src, type_)
 import Html.Events exposing (onInput, onSubmit)
@@ -9,6 +10,7 @@ import Http
 import Json.Decode as Decode exposing (Decoder, field, string)
 import Json.Encode as Encode
 import QRCode
+import Url exposing (Url)
 import Utility exposing (textHtml)
 
 
@@ -23,6 +25,8 @@ type alias Model =
     , flags : Flags
     , invoice : Maybe Invoice
     , articleTeasers : List Article
+    , url : Url
+    , key : Key
     }
 
 
@@ -61,14 +65,16 @@ type alias Flags =
     { backendApiUrl : String }
 
 
-init : Flags -> ( Model, Cmd Msg )
-init flag =
+init : Flags -> Url -> Key -> ( Model, Cmd Msg )
+init flag url key =
     ( { loginStatus = Anonymous
       , formKey = ""
       , nodeInfo = Nothing
       , flags = flag
       , invoice = Nothing
       , articleTeasers = []
+      , key = key
+      , url = url
       }
     , Cmd.batch [ checkLogin flag.backendApiUrl, getInfo flag.backendApiUrl, getArticles flag.backendApiUrl ]
     )
@@ -87,6 +93,8 @@ type Msg
     | GotCheckLogin (Result Http.Error CheckLoginResult)
     | GotInvoice (Result Http.Error Invoice)
     | GotArticles (Result Http.Error (List Article))
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
 
 
 newLoginCheckPost : String -> Encode.Value
@@ -262,33 +270,55 @@ update msg model =
         DoLogin ->
             ( model, checkLoginKey model.flags.backendApiUrl model.formKey )
 
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, pushUrl model.key (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, load href )
+
+        UrlChanged url ->
+            ( { model | url = url }
+            , Cmd.none
+            )
+
 
 
 ---- VIEW ----
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div [ class "app" ]
-        [ header [ class "header" ]
-            [ nav []
-                [ div [ id "menuToggle" ]
-                    [ input [ type_ "checkbox" ] []
-                    , span [] [ text "" ]
-                    , span [] [ text "" ]
-                    , span [] [ text "" ]
-                    , ul [ id "menu" ]
-                        [ li [] [ a [ href "#" ] [ text "Home" ] ]
-                        , li [] [ a [ href "#" ] [ text "About" ] ]
-                        , li [] [ a [ href "#" ] [ text "Contact" ] ]
+    Browser.Document "Lightning Concept Store"
+        [ div [ class "app" ]
+            [ header [ class "header" ]
+                [ nav []
+                    [ div [ id "menuToggle" ]
+                        [ input [ type_ "checkbox" ] []
+                        , span [] [ text "" ]
+                        , span [] [ text "" ]
+                        , span [] [ text "" ]
+                        , ul [ id "menu" ]
+                            [ li [] [ a [ href "#" ] [ text "Home" ] ]
+                            , li [] [ a [ href "articles" ] [ text "Articles" ] ]
+                            , li [] [ a [ href "#" ] [ text "Contact" ] ]
+                            ]
                         ]
                     ]
+                , h1 [] [ text "Concept Lightning Store" ]
                 ]
-            , h1 [] [ text "Concept Lightning Store" ]
+            , case model.url.path of
+                "/articles" ->
+                    p [] [ text "articles" ]
+
+                _ ->
+                    div []
+                        [ loginView model
+                        , articleTeaserViews model.articleTeasers
+                        , section [] [ nodeInfoView model.nodeInfo ]
+                        ]
             ]
-        , loginView model
-        , articleTeaserViews model.articleTeasers
-        , section [] [ nodeInfoView model.nodeInfo ]
         ]
 
 
@@ -374,15 +404,22 @@ qrCodeView message =
             (Html.text "Error while encoding to QRCode.")
 
 
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
+
+
 
 ---- PROGRAM ----
 
 
 main : Program Flags Model Msg
 main =
-    Browser.element
+    Browser.application
         { view = view
         , init = init
         , update = update
-        , subscriptions = always Sub.none
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
