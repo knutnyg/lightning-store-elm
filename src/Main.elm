@@ -90,7 +90,7 @@ type Msg
     | CheckLogin
     | SetFormKey String
     | DoLogin
-    | GotCheckLogin (Result Http.Error CheckLoginResult)
+    | GotCheckLogin (Result Http.Error LoginState)
     | GotInvoice (Result Http.Error Invoice)
     | GotArticles (Result Http.Error (List Article))
     | LinkClicked Browser.UrlRequest
@@ -127,14 +127,6 @@ checkLogin baseUrl =
         , timeout = Nothing
         , tracker = Nothing
         }
-
-
-
---checkLogin baseUrl =
---    Http.get
---        { url = baseUrl ++ "/login"
---        , expect = Http.expectJson GotCheckLogin checkLoginResultDecoder
---        }
 
 
 getInfo : String -> Cmd Msg
@@ -206,11 +198,20 @@ loginStateDecoder =
             )
 
 
-checkLoginResultDecoder : Decoder CheckLoginResult
+checkLoginResultDecoder : Decoder LoginState
 checkLoginResultDecoder =
     Decode.map2 CheckLoginResult
         (field "status" loginStateDecoder)
         (Decode.maybe (field "key" string))
+        |> Decode.andThen
+            (\val ->
+                case ( val.status, val.key ) of
+                    ( LoggedInTemp, Just key ) ->
+                        Decode.succeed (LoggedIn key)
+
+                    _ ->
+                        Decode.succeed Anonymous
+            )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -251,17 +252,7 @@ update msg model =
 
         GotCheckLogin result ->
             case result of
-                Ok val ->
-                    let
-                        status =
-                            case val.status of
-                                LoggedInTemp ->
-                                    Maybe.map (\key -> LoggedIn key) val.key
-                                        |> Maybe.withDefault Anonymous
-
-                                AnonymousTemp ->
-                                    Anonymous
-                    in
+                Ok status ->
                     ( { model | loginStatus = status }, Cmd.none )
 
                 Err err ->
