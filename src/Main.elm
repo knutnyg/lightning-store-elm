@@ -92,6 +92,7 @@ type Msg
     | DoLogin
     | GotCheckLogin (Result Http.Error LoginState)
     | GotInvoice (Result Http.Error Invoice)
+    | AddedInvoice (Result Http.Error CreateInvoiceResult)
     | GotArticles (Result Http.Error (List Article))
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
@@ -143,6 +144,32 @@ getInvoice baseUrl =
         { url = baseUrl ++ "/invoices"
         , body = Http.emptyBody
         , expect = Http.expectJson GotInvoice invoiceDecoder
+        }
+
+
+type alias CreateInvoiceResult =
+    { id : String
+    , rhash : String
+    , paymentRequest : String
+    , memo : Maybe String
+    }
+
+
+invoiceAddedDecoder : Decoder CreateInvoiceResult
+invoiceAddedDecoder =
+    Decode.map4 CreateInvoiceResult
+        (field "id" string)
+        (field "rhash" string)
+        (field "paymentRequest" string)
+        (Decode.maybe (field "memo" string))
+
+
+createInvoice : String -> CreateInvoiceResult -> Cmd Msg
+createInvoice baseUrl invoice =
+    Http.post
+        { url = baseUrl
+        , body = Http.emptyBody
+        , expect = Http.expectJson AddedInvoice invoiceAddedDecoder
         }
 
 
@@ -273,6 +300,9 @@ update msg model =
             ( { model | url = url }
             , Cmd.none
             )
+
+        AddedInvoice result ->
+            ( model, Cmd.none )
 
 
 
