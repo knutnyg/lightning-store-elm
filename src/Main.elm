@@ -1,13 +1,14 @@
 module Main exposing (Article, Flags, Invoice, Model, Msg(..), NodeInfo, getInfo, getInfoDecoder, init, main, nodeInfoView, update, view)
 
+import Array exposing (Array)
 import Base64
 import Browser
 import Browser.Navigation exposing (Key, load, pushUrl)
 import Html exposing (Html, a, article, button, div, form, h1, h2, header, img, input, li, nav, p, section, span, text, ul)
 import Html.Attributes as Attributes exposing (action, class, href, id, src, type_)
-import Html.Events exposing (onInput, onSubmit)
+import Html.Events exposing (onClick, onInput, onSubmit)
 import Http
-import Json.Decode as Decode exposing (Decoder, field, string)
+import Json.Decode as Decode exposing (Decoder, field, maybe, string)
 import Json.Encode as Encode
 import QRCode
 import Url exposing (Url)
@@ -58,6 +59,7 @@ type alias Article =
     { uuid : String
     , title : String
     , teaser : String
+    , content : Maybe String
     }
 
 
@@ -96,6 +98,9 @@ type Msg
     | GotArticles (Result Http.Error (List Article))
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
+    | StartPayment
+    | GetArticle String
+    | GotArticle (Result Http.Error Article)
 
 
 newLoginCheckPost : String -> Encode.Value
@@ -175,20 +180,45 @@ createInvoice baseUrl invoice =
 
 getArticles : String -> Cmd Msg
 getArticles baseUrl =
+    let
+        _ =
+            Debug.log "msg" "Fetching articles"
+    in
     Http.get
         { url = baseUrl ++ "/articles"
-        , expect = Http.expectJson GotArticles articleDecoder
+        , expect = Http.expectJson GotArticles articlesDecoder
         }
 
 
-articleDecoder : Decoder (List Article)
+getArticle : String -> String -> Cmd Msg
+getArticle baseUrl uuid =
+    let
+        _ =
+            Debug.log "msg" "Fetching article"
+    in
+    Http.riskyRequest
+        { method = "GET"
+        , headers = []
+        , body = Http.emptyBody
+        , url = baseUrl ++ "/articles/" ++ uuid
+        , expect = Http.expectJson GotArticle articleDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+articleDecoder : Decoder Article
 articleDecoder =
-    Decode.list
-        (Decode.map3 Article
-            (field "uuid" string)
-            (field "title" string)
-            (field "teaser" string)
-        )
+    Decode.map4 Article
+        (field "uuid" string)
+        (field "title" string)
+        (field "teaser" string)
+        (maybe (field "content" string))
+
+
+articlesDecoder : Decoder (List Article)
+articlesDecoder =
+    Decode.list articleDecoder
 
 
 invoiceDecoder : Decoder Invoice
@@ -204,6 +234,19 @@ getInfoDecoder =
         (field "blockHeight" Decode.int)
         (field "alias" string)
         (field "uri" string)
+
+
+updateArticle : Article -> List Article -> List Article
+updateArticle up articles =
+    List.map
+        (\l ->
+            if l.uuid == up.uuid then
+                up
+
+            else
+                l
+        )
+        articles
 
 
 type LoginStateTemp
@@ -301,6 +344,24 @@ update msg model =
             , Cmd.none
             )
 
+        StartPayment ->
+            let
+                _ =
+                    Debug.log "message" "starting payment"
+            in
+            ( model, Cmd.none )
+
+        GotArticle result ->
+            case result of
+                Ok i ->
+                    ( { model | articleTeasers = updateArticle i model.articleTeasers }, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+        GetArticle uuid ->
+            ( model, getArticle model.flags.backendApiUrl uuid )
+
         AddedInvoice result ->
             ( model, Cmd.none )
 
@@ -322,16 +383,33 @@ view model =
                         , span [] [ text "" ]
                         , ul [ id "menu" ]
                             [ li [] [ a [ href "/" ] [ text "Home" ] ]
-                            , li [] [ a [ href "articles" ] [ text "Articles" ] ]
+                            , li [] [ a [ href "/articles" ] [ text "Articles" ] ]
                             , li [] [ a [ href "#" ] [ text "Contact" ] ]
                             ]
                         ]
                     ]
                 , h1 [] [ text "Concept Lightning Store" ]
                 ]
-            , case model.url.path of
-                "/articles" ->
+            , let
+                segments =
+                    String.split "/" model.url.path
+                        |> List.filter (\s -> s /= "")
+              in
+              case segments of
+                [ "articles" ] ->
                     articleTeaserViews model.articleTeasers
+
+                [ "articles", uuid ] ->
+                    let
+                        maybeArticle =
+                            List.head (List.filter (\a -> a.uuid == uuid) model.articleTeasers)
+                    in
+                    case maybeArticle of
+                        Nothing ->
+                            p [] [ text "could not find article" ]
+
+                        Just article ->
+                            articleView article
 
                 _ ->
                     div []
@@ -373,19 +451,53 @@ articleTeaserViews lst =
     div []
         (List.map
             (\l ->
-                article []
-                    (textHtml
-                        (case Base64.decode l.teaser of
-                            Ok res ->
-                                res
+                div []
+                    [ article []
+                        (textHtml
+                            (case Base64.decode l.teaser of
+                                Ok res ->
+                                    res
 
-                            Err _ ->
-                                "<p>Failed to decode article</p>"
+                                Err _ ->
+                                    "<p>Failed to decode article</p>"
+                            )
                         )
-                    )
+                    , a [ href ("/articles/" ++ l.uuid) ] [ text "To full article >" ]
+                    ]
             )
             lst
         )
+
+
+articleView : Article -> Html Msg
+articleView art =
+    case art.content of
+        Nothing ->
+            div []
+                [ article []
+                    (textHtml
+                        (case Base64.decode art.teaser of
+                            Ok res ->
+                                res
+
+                            Err err ->
+                                err
+                        )
+                    )
+                , button [ onClick (GetArticle art.uuid) ] [ text "buy me please" ]
+                ]
+
+        Just a ->
+            article []
+                (textHtml
+                    (case Base64.decode a of
+                        Ok res ->
+                            res
+
+                        Err err ->
+                            err
+                    )
+                )
 
 
 invoiceView : Maybe Invoice -> Html Msg
